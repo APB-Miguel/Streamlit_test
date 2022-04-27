@@ -3,10 +3,10 @@ import streamlit as st
 import time as t
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+import pydeck as pdk
 
 
-
-polygon = Polygon([ (2.158985137939453,41.30102358052782),
+polygon = Polygon([(2.158985137939453,41.30102358052782),
 (2.168855667114258,41.296509788928795),
 (2.1807861328125,41.299282583633726),
 (2.188854217529297,41.30650419320872),
@@ -21,19 +21,39 @@ polygon = Polygon([ (2.158985137939453,41.30102358052782),
         
 
 P='\\\\apbprogs\\CLUSVTS.PORT.APB.ES\\replay_y_backup\\PosicionesAIS-2022'
-data=pd.read_csv(P+'\\AIS Febrero 2022.txt', sep=';', parse_dates=[1,14], header=0, nrows=30000)
+data=pd.read_csv(P+'\\AIS Febrero 2022.txt', sep=';', parse_dates=[1,14], header=0, nrows=300000)
 
 PC=data["ESCALA"]
-
 filtro=data[data["ESCALA"] == PC]
-
 filtro = filtro.rename(columns={'LATITUD':'latitude', 'LONGITUD':'longitude'})
 
+filtro["count"]= 1.0
+filtro = filtro[['latitude','longitude','count']]
+st.dataframe(filtro)
 
-filtro['point'] = filtro.apply(lambda row: Point(row['latitude'],row['longitude']),axis=1)
+view = pdk.data_utils.compute_view(filtro[["longitude", "latitude"]])
+view.pitch = 75
+view.bearing = 60
 
-df_1 = filtro[filtro['point'].apply(polygon.contains)].copy()
 
-st.write(df_1)
+capa = pdk.Layer(
+    'HexagonLayer',
+    data=filtro,
+    get_position=['longitude', 'latitude'],
+    radius=20,
+    elevation_scale=4,
+    elevation_range=[0, 1000],
+    pickable=True,
+    extruded=True,
+)
 
-st.map(filtro[['latitude','longitude']])
+
+r = pdk.Deck(
+    capa,
+    initial_view_state=view,
+    map_provider="mapbox",
+)
+
+     
+st.pydeck_chart(r)
+
